@@ -1,6 +1,6 @@
 const express = require('express');
 const cors = require('cors');
-const {sequelize, Users, messages} = require('./models');
+const {sequelize, Users, messages, personalchat} = require('./models');
 const argon2 = require('argon2');
 const app = express();
 const jwt = require('jsonwebtoken');
@@ -79,20 +79,6 @@ app.post('/forgotpassword', async(req, res)=>{
     }
 })
 
-app.get('/get/:id', check, async (req, res)=>{
-    try{
-        const id = req.params.id;
-        const user = await Users.findOne({where: {id}});
-        if(!user){
-            throw Error("user do not exit");
-        }
-        return res.json(user);
-    }catch(err){
-        console.log(err);
-        return res.status(500).json({err:err});
-    }
-})
-
 
 app.post('/login', async(req, res)=>{
     const {email, password} = req.body;
@@ -113,7 +99,7 @@ app.post('/login', async(req, res)=>{
 
 app.post('/sendmsg', check, async(req, res)=>{
     const {email, msg} = req.body;
-    console.log(email, msg);
+    // console.log(email, msg);
     try{
         const newmsg = await messages.create({email, message:msg});
         await newmsg.save();
@@ -129,6 +115,34 @@ app.get('/getmessages', check, async(req, res)=>{
         const message = await messages.findAll();
         return res.json(message);
     }catch(err){
+        res.status(500).json({err});
+    }
+})
+
+app.post('/getmessages', check, async(req, res)=>{
+    try{
+        const {to, from} = req.body;
+        var messages = await personalchat.findAll({where:{to, from}});
+        var frommessages = await personalchat.findAll({where:{to:from, from:to}});
+        messages = messages.concat(frommessages);
+        messages.sort((a,b)=>{
+            return a.createdAt - b.createdAt;
+        });
+        return res.json(messages);
+    }catch(err){
+        console.log(err);
+        return res.status(500).json({msg:"internal err"});
+    }
+})
+
+app.post('/sendpersonalmsg', check, async(req, res)=>{
+    const {to, from, msg} = req.body;
+    try{
+        const newmsg = await personalchat.create({to, from, msg});
+        await newmsg.save();
+        return res.json({message:"Message sent"});
+    }catch(err){
+        // console.log(err);
         res.status(500).json({err});
     }
 })
